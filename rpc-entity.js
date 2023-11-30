@@ -1,3 +1,5 @@
+"use strict";
+
 const Hyperswarm = require("hyperswarm");
 const HyperswarmRPC = require("@hyperswarm/rpc");
 const DHT = require("hyperdht");
@@ -52,7 +54,6 @@ class RPCEntity {
 
         if (jsonData.publicKey) {
           this.rpcServerPublicKey = jsonData.publicKey;
-          this.RPC.connect(Buffer.from(this.rpcServerPublicKey));
           console.log("You are now in client mode.");
           process.stdout.write("> ");
         }
@@ -71,6 +72,8 @@ class RPCEntity {
       // Only care about the message when you already started the RPC
       this.RPCServer = this.RPC.createServer();
       await this.RPCServer.listen();
+      this.onRPCMessage = this.onRPCMessage.bind(this);
+      this.RPCServer.respond("message", this.onRPCMessage);
 
       this.serverConnection.write(
         JSON.stringify({
@@ -109,6 +112,7 @@ class RPCEntity {
   }
 
   async toServer() {
+    this.RPC?.destroy();
     await this.startRPC();
     // Send this dhtSeed to server for safekeeping
     this.sendToSwarmServer({
@@ -129,10 +133,26 @@ class RPCEntity {
     }
 
     await this.startRPC();
-    this.RPCClient = this.RPC.connect(Buffer.from(this.rpcServerPublicKey));
-
     console.log("You are now in client mode.");
     process.stdout.write("> ");
+  }
+
+  async onClientMessage(data) {
+    if (!this.RPCServer) {
+      // if you are a server, ignore this
+      await this.RPC.request(
+        Buffer.from(this.rpcServerPublicKey, "hex"),
+        "message",
+        Buffer.from(data, "utf-8")
+      ).catch((err) => {
+        console.log("error on sending request!!!");
+        console.error(err);
+      });
+    }
+  }
+
+  async onRPCMessage(data) {
+    console.log("Via RPC: ", data.toString("utf-8"));
   }
 }
 

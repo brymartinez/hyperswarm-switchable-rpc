@@ -29,7 +29,7 @@ class Server {
     this.connections.push(conn);
     conn.write(
       JSON.stringify({
-        msg: "init",
+        mode: "init",
         dhtSeed: this.dhtSeed,
         publicKey: this.rpcPublicKey,
       })

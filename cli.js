@@ -26,6 +26,9 @@ class CLI {
           default:
             console.error(`Unknown RPC mode: ${args[1]}`);
         }
+      } else {
+        // it is a client message
+        await client.onClientMessage(line);
       }
 
       this.rl.prompt();
