@@ -25,7 +25,7 @@ class Server {
 
   async handleConnections(conn, info) {
     // All connections must receive rpcPublicKey and dhtSeed when available
-
+    console.log("Received connection from ", info.publicKey.toString("hex"));
     this.connections.push(conn);
     conn.write(
       JSON.stringify({
@@ -52,6 +52,14 @@ class Server {
       case "rpc-public-key":
         console.log("Receiving public key...");
         this.rpcPublicKey = jsonData.publicKey;
+        this.broadcast(
+          JSON.stringify({
+            mode: "rpc-server-public-key-ack",
+            dhtSeed: this.dhtSeed,
+            publicKey: this.rpcPublicKey,
+          })
+        );
+
       default:
         break;
     }

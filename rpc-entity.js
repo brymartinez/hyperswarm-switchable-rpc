@@ -43,35 +43,52 @@ class RPCEntity {
         // dhtSeed and public key are received when there's an existing server.
         // otherwise null
         // this way, RPCEntity defaults to 'client' mode.
+        // A client might connect while onRPCServerAck is being called, hence no public key
+        // Only notify client mode when there's a public key
         if (jsonData.dhtSeed) {
           this.dhtSeed = jsonData.dhtSeed;
           await this.startRPC();
         }
 
         if (jsonData.publicKey) {
-          this.rpcServerPublicKey = jsonData.publicKey.toString("hex");
+          this.rpcServerPublicKey = jsonData.publicKey;
           this.RPC.connect(Buffer.from(this.rpcServerPublicKey));
+          console.log("You are now in client mode.");
+          process.stdout.write("> ");
         }
-
         break;
       case "rpc-server-ack":
         await this.onRPCServerAck();
+        break;
+      case "rpc-server-public-key-ack":
+        await this.onRPCServerPublicKeyAck(jsonData);
         break;
     }
   }
 
   async onRPCServerAck() {
-    this.RPCServer = this.RPC.createServer();
-    await this.RPCServer.listen();
-    this.serverConnection.write(
-      JSON.stringify({
-        mode: "rpc-public-key",
-        publicKey: this.RPCServer.publicKey.toString("hex"),
-      })
-    );
+    if (this.RPC) {
+      // Only care about the message when you already started the RPC
+      this.RPCServer = this.RPC.createServer();
+      await this.RPCServer.listen();
 
-    console.log("You are now in server mode.");
-    process.stdout.write("> ");
+      this.serverConnection.write(
+        JSON.stringify({
+          mode: "rpc-public-key",
+          publicKey: this.RPCServer.publicKey.toString("hex"),
+        })
+      );
+
+      console.log("You are now in server mode.");
+      process.stdout.write("> ");
+    }
+  }
+
+  async onRPCServerPublicKeyAck(jsonData) {
+    // Received after public key creation (hence after dhtSeed creation)
+    // Only relevant if you are running on client mode, but no harm in reassigning
+    this.rpcServerPublicKey = jsonData.publicKey;
+    this.dhtSeed = jsonData.dhtSeed;
   }
 
   sendToSwarmServer(message) {
@@ -80,13 +97,14 @@ class RPCEntity {
 
   async startRPC() {
     if (!this.RPC) {
-      const dhtSeed = this.dhtSeed ?? crypto.randomBytes(32);
+      this.dhtSeed = this.dhtSeed ?? crypto.randomBytes(32);
 
-      const dht = new DHT({ keyPair: DHT.keyPair(dhtSeed) });
+      const dht = new DHT({
+        keyPair: DHT.keyPair(Buffer.from(this.dhtSeed, "hex")),
+      });
 
       await dht.ready();
       this.RPC = new HyperswarmRPC({ dht });
-      this.dhtSeed = dhtSeed;
     }
   }
 
@@ -101,6 +119,7 @@ class RPCEntity {
 
   async toClient() {
     if (this.RPCServer) {
+      console.error("You are the current server, closing connections...");
       await this.RPCServer.close();
     }
 
@@ -109,9 +128,8 @@ class RPCEntity {
       return;
     }
 
-    this.this.RPCClient = this.RPC.connect(
-      Buffer.from(this.rpcServerPublicKey)
-    );
+    await this.startRPC();
+    this.RPCClient = this.RPC.connect(Buffer.from(this.rpcServerPublicKey));
 
     console.log("You are now in client mode.");
     process.stdout.write("> ");
