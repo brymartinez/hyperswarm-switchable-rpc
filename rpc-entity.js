@@ -44,7 +44,8 @@ class RPCEntity {
         // otherwise null
         // this way, RPCEntity defaults to 'client' mode.
         if (jsonData.dhtSeed) {
-          await this.startRPC(jsonData.dhtSeed);
+          this.dhtSeed = jsonData.dhtSeed;
+          await this.startRPC();
         }
 
         if (jsonData.publicKey) {
@@ -77,25 +78,24 @@ class RPCEntity {
     this.serverConnection.write(JSON.stringify(message));
   }
 
-  async startRPC(existingDHTSeed) {
+  async startRPC() {
     if (!this.RPC) {
-      const dhtSeed = existingDHTSeed ?? crypto.randomBytes(32);
+      const dhtSeed = this.dhtSeed ?? crypto.randomBytes(32);
 
       const dht = new DHT({ keyPair: DHT.keyPair(dhtSeed) });
 
       await dht.ready();
       this.RPC = new HyperswarmRPC({ dht });
-
-      return dhtSeed;
+      this.dhtSeed = dhtSeed;
     }
   }
 
   async toServer() {
-    const dhtSeed = await this.startRPC();
+    await this.startRPC();
     // Send this dhtSeed to server for safekeeping
     this.sendToSwarmServer({
       mode: "rpc-server",
-      dhtSeed: dhtSeed.toString("hex"),
+      dhtSeed: this.dhtSeed.toString("hex"),
     });
   }
 
@@ -109,7 +109,12 @@ class RPCEntity {
       return;
     }
 
-    this.RPCClient = this.RPC.connect(Buffer.from(this.rpcServerPublicKey));
+    this.this.RPCClient = this.RPC.connect(
+      Buffer.from(this.rpcServerPublicKey)
+    );
+
+    console.log("You are now in client mode.");
+    process.stdout.write("> ");
   }
 }
 
