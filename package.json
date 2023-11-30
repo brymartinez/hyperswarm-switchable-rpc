@@ -1,0 +1,17 @@
+{
+  "name": "hyperswarm-switchable-rpc",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@hyperswarm/rpc": "^3.3.0",
+    "hyperdht": "^6.11.0",
+    "hyperswarm": "^4.7.11"
+  }
+}
