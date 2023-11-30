@@ -11,7 +11,6 @@ async function main() {
       break;
     case "client":
       const client = new RPCEntity();
-
       break;
     default:
       throw new Error(`Mode ${process.argv[2]} not recognized.`);

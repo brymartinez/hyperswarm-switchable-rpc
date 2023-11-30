@@ -24,15 +24,37 @@ class Server {
   }
 
   async handleConnections(conn, info) {
-    this.connections.push(conn);
+    // All connections must receive rpcPublicKey and dhtSeed when available
 
+    this.connections.push(conn);
+    conn.write(
+      JSON.stringify({
+        msg: "init",
+        dhtSeed: this.dhtSeed,
+        publicKey: this.rpcPublicKey,
+      })
+    );
     this.handleData = this.handleData.bind(this);
     conn.on("data", this.handleData);
   }
 
   async handleData(data) {
-    console.log(data);
-    // should eventually handle handshakes, etc
+    const jsonData = JSON.parse(data.toString());
+    console.log("Server received: ", jsonData);
+
+    switch (jsonData.mode) {
+      case "rpc-server":
+        console.log("Receiving seed...");
+        this.dhtSeed = jsonData.dhtSeed.toString("hex");
+        // send ack
+        this.broadcast(JSON.stringify({ mode: "rpc-server-ack" }));
+        break;
+      case "rpc-public-key":
+        console.log("Receiving public key...");
+        this.rpcPublicKey = jsonData.publicKey;
+      default:
+        break;
+    }
   }
 
   broadcast(object) {

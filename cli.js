@@ -18,8 +18,10 @@ class CLI {
         // it's an internal command to switch
         switch (args[1]) {
           case "server":
+            await client.toServer();
             break;
           case "client":
+            await client.toClient();
             break;
           default:
             console.error(`Unknown RPC mode: ${args[1]}`);
