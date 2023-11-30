@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "server": "node server",
-    "client": "node rpc-entity"
+    "server": "node index server",
+    "client": "node index client"
   },
   "keywords": [],
   "author": "",
