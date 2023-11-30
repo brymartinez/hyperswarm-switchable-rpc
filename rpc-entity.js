@@ -44,41 +44,54 @@ class RPCEntity {
         // otherwise null
         // this way, RPCEntity defaults to 'client' mode.
         if (jsonData.dhtSeed) {
-          this.RPC = new HyperswarmRPC({ keyPair: DHT.keyPair(dhtSeed) });
+          await this.startRPC(jsonData.dhtSeed);
         }
 
         if (jsonData.publicKey) {
           this.rpcServerPublicKey = jsonData.publicKey.toString("hex");
-          this.RPC.connect(jsonData.publicKey.toString("hex"));
+          this.RPC.connect(Buffer.from(this.rpcServerPublicKey));
         }
 
+        break;
       case "rpc-server-ack":
-        this.RPCServer = this.RPC.createServer();
-        await this.RPCServer.listen();
-        this.serverConnection.write(
-          JSON.stringify({
-            mode: "rpc-public-key",
-            publicKey: this.RPCServer.publicKey.toString("hex"),
-          })
-        );
-
-        console.log("You are now in server mode.");
-        process.stdout.write("> ");
+        await this.onRPCServerAck();
+        break;
     }
+  }
+
+  async onRPCServerAck() {
+    this.RPCServer = this.RPC.createServer();
+    await this.RPCServer.listen();
+    this.serverConnection.write(
+      JSON.stringify({
+        mode: "rpc-public-key",
+        publicKey: this.RPCServer.publicKey.toString("hex"),
+      })
+    );
+
+    console.log("You are now in server mode.");
+    process.stdout.write("> ");
   }
 
   sendToSwarmServer(message) {
     this.serverConnection.write(JSON.stringify(message));
   }
 
+  async startRPC(existingDHTSeed) {
+    if (!this.RPC) {
+      const dhtSeed = existingDHTSeed ?? crypto.randomBytes(32);
+
+      const dht = new DHT({ keyPair: DHT.keyPair(dhtSeed) });
+
+      await dht.ready();
+      this.RPC = new HyperswarmRPC({ dht });
+
+      return dhtSeed;
+    }
+  }
+
   async toServer() {
-    const dhtSeed = crypto.randomBytes(32);
-
-    const dht = new DHT({ keyPair: DHT.keyPair(dhtSeed) });
-
-    await dht.ready();
-    this.RPC = new HyperswarmRPC({ dht });
-
+    const dhtSeed = await this.startRPC();
     // Send this dhtSeed to server for safekeeping
     this.sendToSwarmServer({
       mode: "rpc-server",
@@ -87,7 +100,7 @@ class RPCEntity {
   }
 
   async toClient() {
-    if (this.RPCServer && !this.RPCServer.closed) {
+    if (this.RPCServer) {
       await this.RPCServer.close();
     }
 
